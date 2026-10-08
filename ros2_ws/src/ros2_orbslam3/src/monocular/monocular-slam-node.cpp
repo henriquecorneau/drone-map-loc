@@ -24,9 +24,11 @@ MonocularSLAMNode::MonocularSLAMNode(ORB_SLAM3::System* pSLAM)
 {
     SLAM_ = pSLAM;
 
+    const std::string image_topic = this->declare_parameter<std::string>("image_topic", "/tello/camera");
+
     // Image subscriber
     img_sub_ = this->create_subscription<ImageMsg>(
-        "/tello/camera", 
+        image_topic,
         rclcpp::QoS(10), 
         std::bind(&MonocularSLAMNode::grab_data, this, std::placeholders::_1)
     );
@@ -73,25 +75,30 @@ void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
 
         current_pose_ = SLAM_->TrackMonocular(gray_image, Utility::StampToSec(msg->header.stamp));
 
-        Eigen::Vector3f translation = current_pose_.translation();
-        Eigen::Matrix3f rotation = current_pose_.rotationMatrix();
-
         PoseStampedMsg pose_msg1;
         pose_msg1.header.stamp = msg->header.stamp;
-        pose_msg1.pose.position.x = translation(0);
-        pose_msg1.pose.position.y = translation(1);
-        pose_msg1.pose.position.z = translation(2);
+        pose_msg1.pose.position.x = current_pose_.translation()(0);
+        pose_msg1.pose.position.y = current_pose_.translation()(1);
+        pose_msg1.pose.position.z = current_pose_.translation()(2);
 
-        Eigen::Quaternionf quaternion(rotation);
+        Eigen::Quaternionf quaternion(current_pose_.rotationMatrix());
         pose_msg1.pose.orientation.x = -quaternion.x();
         pose_msg1.pose.orientation.y = -quaternion.y();
         pose_msg1.pose.orientation.z = -quaternion.z();
         pose_msg1.pose.orientation.w = quaternion.w();
 
         camera_pose_pub1_->publish(pose_msg1);
-        
-        Sophus::SE3f Twc = SLAM_->GetCamTwc();
 
+        // Skip publishing if tracking is not OK or pose is not set / NaN
+        int tracking_state = SLAM_->GetTrackingState();
+        if(tracking_state != ORB_SLAM3::Tracking::OK && tracking_state != ORB_SLAM3::Tracking::OK_KLT)
+            return;
+
+        Sophus::SE3f Tcw = SLAM_->GetTracker()->mCurrentFrame.GetPose();
+        if(!SLAM_->GetTracker()->mCurrentFrame.isSet())
+            return;
+
+        Sophus::SE3f Twc = Tcw.inverse();
         if(Twc.translation().array().isNaN()[0] || Twc.rotationMatrix().array().isNaN()(0,0)) // avoid publishing NaN
             return;
     
@@ -100,9 +107,9 @@ void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
         publish_odometry(Twc, msg_time);
         publish_camera_pose(Twc, msg->header);
         publish_tracked_points(SLAM_->GetTrackedMapPoints(), msg_time);
-        publish_all_points(SLAM_->GetAllMapPoints(), msg_time);
-        publish_tracking_img(SLAM_->GetCurrentFrame(), msg->header.stamp);
-        publish_kf_markers(SLAM_->GetAllKeyframePoses(), msg_time);
+        publish_all_points(GetAllMapPoints(), msg_time);
+        publish_tracking_img(SLAM_->GetTracker()->mImGray, msg->header.stamp);
+        publish_kf_markers(GetAllKeyframePoses(), msg_time);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -221,12 +228,13 @@ void MonocularSLAMNode::publish_camera_pose(const Sophus::SE3f& Tcw_SE3f, const 
     camera_pose_pub2_->publish(pose_msg2);
 }
 
-bool MonocularSLAMNode::save_map_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
+void MonocularSLAMNode::save_map_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                                      std::shared_ptr<std_srvs::srv::Empty::Response> response)
 {
-    SLAM_->SaveMap("SavedMap.map");
-    RCLCPP_INFO(this->get_logger(), "Map has been saved to 'SavedMap.map'");
-    return true;
+    // The mainline ORB_SLAM3 does not expose runtime SaveMap(); the atlas is
+    // saved to this file automatically during Shutdown().
+    SLAM_->SetSaveAtlasFile("SavedMap.osa");
+    RCLCPP_INFO(this->get_logger(), "Atlas will be saved to 'SavedMap.osa' on shutdown");
 }
 
 bool MonocularSLAMNode::save_traj_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
@@ -296,4 +304,25 @@ sensor_msgs::msg::PointCloud2 MonocularSLAMNode::mappoint_to_pointcloud(std::vec
     }
 
     return cloud;
+}
+
+std::vector<ORB_SLAM3::MapPoint*> MonocularSLAMNode::GetAllMapPoints()
+{
+    ORB_SLAM3::GraphSnapshot snap = SLAM_->GetGraphSnapshot();
+    // This version of ORB_SLAM3 only exposes the tracked points publicly,
+    // so "all points" falls back to the current tracked set.
+    return SLAM_->GetTrackedMapPoints();
+}
+
+std::vector<Sophus::SE3f> MonocularSLAMNode::GetAllKeyframePoses()
+{
+    std::vector<Sophus::SE3f> kf_poses;
+    ORB_SLAM3::GraphSnapshot snap = SLAM_->GetGraphSnapshot();
+    kf_poses.reserve(snap.keyframes.size());
+    for(const ORB_SLAM3::KeyframeSnapshot& kf : snap.keyframes)
+    {
+        if(!kf.bad)
+            kf_poses.push_back(kf.T_world_camera);
+    }
+    return kf_poses;
 }

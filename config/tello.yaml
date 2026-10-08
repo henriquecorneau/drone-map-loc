@@ -3,7 +3,7 @@
 #--------------------------------------------------------------------------------------------
 # Camera Parameters. Adjust them!
 #--------------------------------------------------------------------------------------------
-System.LoadAtlasFromFile: "atlas_00"
+#System.LoadAtlasFromFile: "atlas_00"
 File.version: "1.0"
 
 Camera.type: "PinHole"
@@ -77,3 +77,6 @@ Viewer.ViewpointX: 0.0
 Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500.0
+# Disable the ORB_SLAM3 web viewer; its blocking accept() never wakes on
+# close during shutdown and the process never exits (map is not saved).
+WebViewer.Enabled: 0

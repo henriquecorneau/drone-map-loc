@@ -71,4 +71,23 @@ Tested on:
 
    or
 
-   `$ ros2 run ros2_orbslam3 rgbd <path_to_vocabulary> <path_to_settings>` (RGB-D mode)
+    `$ ros2 run ros2_orbslam3 rgbd <path_to_vocabulary> <path_to_settings>` (RGB-D mode)
+
+### Loading an atlas for localization
+
+To load a saved atlas and start directly in localization-only mode:
+
+```bash
+ros2 run ros2_orbslam3 mono <path_to_vocabulary> <mono_camera_settings> \
+  --load-map <path_to_atlas.osa> --localize-only \
+  --ros-args -p image_topic:=/image_raw
+```
+
+`--localize-only` requires `--load-map`. Use a settings file calibrated for
+the monocular input camera. The mapping and localization cameras can differ,
+but the live images must contain visual features overlapping the mapped
+environment. For an RGB-D atlas, the RGB stream was used to create the atlas;
+depth is not needed during monocular localization. The default monocular input
+topic is `/tello/camera` and can be changed with the `image_topic` ROS
+parameter as above. Start in this mode rather than building a new map and
+switching modes later in Pangolin.

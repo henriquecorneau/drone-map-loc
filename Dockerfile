@@ -36,7 +36,7 @@ WORKDIR /home/$USERNAME
 
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 
-RUN git clone https://github.com/natalnet-lpr/ORB_SLAM3_Modular.git
+RUN git clone https://github.com/huynhduc9905/ORB_SLAM3.git
 
 RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
   && cd Pangolin/ \
@@ -48,7 +48,7 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
   && sudo cmake --install build \
   && sudo ldconfig
 
-RUN cd ORB_SLAM3_Modular \
+RUN cd ORB_SLAM3 \
   && chmod +x build.sh \
   && ./build.sh
 

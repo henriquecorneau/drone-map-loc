@@ -84,8 +84,11 @@ private:
 
     sensor_msgs::msg::PointCloud2 mappoint_to_pointcloud(std::vector<ORB_SLAM3::MapPoint*> map_points, const rclcpp::Time& msg_time);
 
+    std::vector<ORB_SLAM3::MapPoint*> GetAllMapPoints();
+    std::vector<Sophus::SE3f> GetAllKeyframePoses();
+
     void setup_services();
-    bool save_map_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
+    void save_map_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                       std::shared_ptr<std_srvs::srv::Empty::Response> response);
     bool save_trajectory_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                       std::shared_ptr<std_srvs::srv::Empty::Response> response);

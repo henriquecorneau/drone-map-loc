@@ -77,7 +77,16 @@ void RGBDSLAMNode::grab_data(const ImageMsg::SharedPtr msg_RGB, const ImageMsg::
 
         current_pose_ = SLAM_->TrackRGBD(cv_ptrRGB_->image, cv_ptrD_->image, Utility::StampToSec(msg_RGB->header.stamp));
 
-        Sophus::SE3f Twc = SLAM_->GetCamTwc();
+        // Skip publishing if tracking is not OK or pose is not set / NaN
+        int tracking_state = SLAM_->GetTrackingState();
+        if(tracking_state != ORB_SLAM3::Tracking::OK && tracking_state != ORB_SLAM3::Tracking::OK_KLT)
+            return;
+
+        Sophus::SE3f Tcw = SLAM_->GetTracker()->mCurrentFrame.GetPose();
+        if(!SLAM_->GetTracker()->mCurrentFrame.isSet())
+            return;
+
+        Sophus::SE3f Twc = Tcw.inverse();
         if(Twc.translation().array().isNaN()[0] || Twc.rotationMatrix().array().isNaN()(0,0)) // do not publish anything if the pose is NaN
             return;
     
@@ -85,9 +94,9 @@ void RGBDSLAMNode::grab_data(const ImageMsg::SharedPtr msg_RGB, const ImageMsg::
         publish_odometry(Twc, msg_time);
         publish_camera_pose(Twc, msg_time);
         publish_tracked_points(SLAM_->GetTrackedMapPoints(), msg_time);
-        publish_all_points(SLAM_->GetAllMapPoints(), msg_time);
-        publish_tracking_img(SLAM_->GetCurrentFrame(), msg_RGB->header.stamp);
-        publish_kf_markers(SLAM_->GetAllKeyframePoses(), msg_time);
+        publish_all_points(GetAllMapPoints(), msg_time);
+        publish_tracking_img(SLAM_->GetTracker()->mImGray, msg_RGB->header.stamp);
+        publish_kf_markers(GetAllKeyframePoses(), msg_time);
     }
     catch (cv_bridge::Exception& e)
     {
@@ -268,12 +277,13 @@ void RGBDSLAMNode::setup_services()
         "save_traj", std::bind(&RGBDSLAMNode::save_trajectory_srv, this, std::placeholders::_1, std::placeholders::_2));
 }
 
-bool RGBDSLAMNode::save_map_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
+void RGBDSLAMNode::save_map_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
                                       std::shared_ptr<std_srvs::srv::Empty::Response> response)
 {
-    SLAM_->SaveMap("SavedMap.map");
-    RCLCPP_INFO(this->get_logger(), "Map has been saved to 'SavedMap.map'");
-    return true;
+    // The mainline ORB_SLAM3 does not expose runtime SaveMap(); the atlas is
+    // saved to this file automatically during Shutdown().
+    SLAM_->SetSaveAtlasFile("SavedMap.osa");
+    RCLCPP_INFO(this->get_logger(), "Atlas will be saved to 'SavedMap.osa' on shutdown");
 }
 
 bool RGBDSLAMNode::save_trajectory_srv(const std::shared_ptr<std_srvs::srv::Empty::Request> request,
@@ -282,4 +292,24 @@ bool RGBDSLAMNode::save_trajectory_srv(const std::shared_ptr<std_srvs::srv::Empt
     SLAM_->SaveKeyFrameTrajectoryTUM("SavedTrajectory.txt");
     RCLCPP_INFO(this->get_logger(), "Trajectory has been saved to 'SavedTrajectory.txt'");
     return true;
+}
+
+std::vector<ORB_SLAM3::MapPoint*> RGBDSLAMNode::GetAllMapPoints()
+{
+    // This version of ORB_SLAM3 only exposes the tracked points publicly,
+    // so "all points" falls back to the current tracked set.
+    return SLAM_->GetTrackedMapPoints();
+}
+
+std::vector<Sophus::SE3f> RGBDSLAMNode::GetAllKeyframePoses()
+{
+    std::vector<Sophus::SE3f> kf_poses;
+    ORB_SLAM3::GraphSnapshot snap = SLAM_->GetGraphSnapshot();
+    kf_poses.reserve(snap.keyframes.size());
+    for(const ORB_SLAM3::KeyframeSnapshot& kf : snap.keyframes)
+    {
+        if(!kf.bad)
+            kf_poses.push_back(kf.T_world_camera);
+    }
+    return kf_poses;
 }

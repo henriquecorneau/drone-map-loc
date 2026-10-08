@@ -7,7 +7,7 @@ services:
         USER_UID: 1000
         USER_GID: 1000
     image: orbslam3-modular:humble
-    container_name: orbslam3_dev
+    container_name: orbslam3
     stdin_open: true
     tty: true
     network_mode: host
