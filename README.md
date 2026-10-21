@@ -199,6 +199,10 @@ for pose estimation). When you stop the node with Ctrl+C, it writes the CSV,
 shuts ORB-SLAM3 down and opens a plot with both curves (frames where tracking
 was lost are shaded). The plot is also saved as a PNG next to the CSV.
 
+Results for `tello_alpha` against `map_rgbd_03`, with plots for each fix and
+an analysis of the remaining tracking losses, are in
+[`results/tello_alpha_vs_map_rgbd_03`](results/tello_alpha_vs_map_rgbd_03/README.md).
+
 To re-plot an existing CSV:
 
 ```bash
