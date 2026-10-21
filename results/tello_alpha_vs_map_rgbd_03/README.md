@@ -1,5 +1,10 @@
 # Localization results: `tello_alpha` against `map_rgbd_03`
 
+> `map_rgbd_03` was built with the TUM Kinect calibration and
+> `RGBD.DepthMapFactor: 5000`, so it is 5x too small. See
+> [`../tello_alpha_vs_map_rgbd_04`](../tello_alpha_vs_map_rgbd_04/README.md)
+> for the corrected, metric map.
+
 Monocular localization of the `tello_alpha` drone bag (2577 frames, ~85 s)
 against the Kinect RGB-D atlas `map_rgbd_03`, run with `--localize-only`.
 Each step adds one fix on top of the previous one.
