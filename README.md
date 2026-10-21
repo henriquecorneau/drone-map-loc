@@ -47,6 +47,9 @@ the container at `/home/dev`, including `ros2_ws`, `config`, and `bags`.
 
 ## 2. Download example bags
 
+To record your own Kinect and drone bags, follow
+[`docs/recording_checklist.md`](docs/recording_checklist.md).
+
 Download the RGB-D and drone bags from the project dataset:
 
 <https://huggingface.co/datasets/rickmandioca/orb_bags_dataset>
