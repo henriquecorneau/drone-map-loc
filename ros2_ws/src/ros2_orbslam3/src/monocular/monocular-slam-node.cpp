@@ -4,10 +4,13 @@
 
 // System includes
 #include <Eigen/Dense>
+#include <algorithm>
+#include <fstream>
 
 // OpenCV includes
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 // ROS2 includes
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -65,6 +68,69 @@ MonocularSLAMNode::~MonocularSLAMNode()
     SLAM_->SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 }
 
+bool MonocularSLAMNode::is_glitchy_frame(const cv::Mat& gray)
+{
+    cv::Mat lap;
+    cv::Laplacian(gray, lap, CV_64F);
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(lap, mean, stddev);
+    const double sharpness = stddev[0] * stddev[0];
+
+    bool glitchy = false;
+    if(sharpness_ema_ > 1.0 && sharpness < 0.35 * sharpness_ema_)
+        glitchy = true;
+
+    if(!prev_gray_.empty() && prev_gray_.size() == gray.size())
+    {
+        cv::Mat diff;
+        cv::absdiff(gray, prev_gray_, diff);
+        if(cv::mean(diff)[0] > 45.0)
+            glitchy = true;
+    }
+
+    if(glitchy && skipped_frames_ < 8)
+    {
+        skipped_frames_++;
+        return true;
+    }
+
+    skipped_frames_ = 0;
+    sharpness_ema_ = (sharpness_ema_ < 1.0) ? sharpness : 0.9 * sharpness_ema_ + 0.1 * sharpness;
+    prev_gray_ = gray.clone();
+    return false;
+}
+
+void MonocularSLAMNode::record_feature_stats(double stamp)
+{
+    // System's copies of the current frame; outliers are already NULL.
+    const int detected = static_cast<int>(SLAM_->GetTrackedKeyPointsUn().size());
+    const std::vector<ORB_SLAM3::MapPoint*> map_points = SLAM_->GetTrackedMapPoints();
+    const int matched = static_cast<int>(
+        std::count_if(map_points.begin(), map_points.end(),
+                      [](ORB_SLAM3::MapPoint* mp) { return mp != nullptr; }));
+
+    feature_stats_.push_back({stamp, detected, matched, SLAM_->GetTrackingState()});
+}
+
+size_t MonocularSLAMNode::save_feature_stats(const std::string& csv_path) const
+{
+    std::ofstream out(csv_path);
+    if(!out)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Could not write feature stats to '%s'", csv_path.c_str());
+        return 0;
+    }
+
+    out << "stamp,detected,matched,state\n";
+    out << std::fixed;
+    for(const FeatureStat& s : feature_stats_)
+        out << s.stamp << "," << s.detected << "," << s.matched << "," << s.state << "\n";
+
+    RCLCPP_INFO(this->get_logger(), "Saved feature stats for %zu frames to '%s'",
+                feature_stats_.size(), csv_path.c_str());
+    return feature_stats_.size();
+}
+
 void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
 {
     try
@@ -73,7 +139,18 @@ void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
         cv::Mat gray_image;
         cv::cvtColor(cv_ptr->image, gray_image, cv::COLOR_BGR2GRAY);
 
-        current_pose_ = SLAM_->TrackMonocular(gray_image, Utility::StampToSec(msg->header.stamp));
+        if(is_glitchy_frame(gray_image))
+            return;
+
+        // Some bags (e.g. tello_alpha) carry zero header stamps. ORB_SLAM3 needs
+        // increasing timestamps (lost-tracking timeouts), so fall back to the
+        // receive time.
+        double stamp = Utility::StampToSec(msg->header.stamp);
+        if(stamp <= 0.0)
+            stamp = this->get_clock()->now().seconds();
+
+        current_pose_ = SLAM_->TrackMonocular(gray_image, stamp);
+        record_feature_stats(stamp);
 
         PoseStampedMsg pose_msg1;
         pose_msg1.header.stamp = msg->header.stamp;
@@ -94,11 +171,7 @@ void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
         if(tracking_state != ORB_SLAM3::Tracking::OK && tracking_state != ORB_SLAM3::Tracking::OK_KLT)
             return;
 
-        Sophus::SE3f Tcw = SLAM_->GetTracker()->mCurrentFrame.GetPose();
-        if(!SLAM_->GetTracker()->mCurrentFrame.isSet())
-            return;
-
-        Sophus::SE3f Twc = Tcw.inverse();
+        Sophus::SE3f Twc = current_pose_.inverse();
         if(Twc.translation().array().isNaN()[0] || Twc.rotationMatrix().array().isNaN()(0,0)) // avoid publishing NaN
             return;
     
@@ -108,7 +181,7 @@ void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
         publish_camera_pose(Twc, msg->header);
         publish_tracked_points(SLAM_->GetTrackedMapPoints(), msg_time);
         publish_all_points(GetAllMapPoints(), msg_time);
-        publish_tracking_img(SLAM_->GetTracker()->mImGray, msg->header.stamp);
+        publish_tracking_img(cv_ptr->image, msg->header.stamp);
         publish_kf_markers(GetAllKeyframePoses(), msg_time);
     }
     catch (cv_bridge::Exception& e)

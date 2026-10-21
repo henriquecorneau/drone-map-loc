@@ -9,6 +9,9 @@
 // OpenCV includes
 #include <opencv2/core/core.hpp>
 
+// ROS2 includes
+#include <sensor_msgs/image_encodings.hpp>
+
 // Local includes
 #include "rgbd-slam-node.hpp"
 
@@ -82,11 +85,7 @@ void RGBDSLAMNode::grab_data(const ImageMsg::SharedPtr msg_RGB, const ImageMsg::
         if(tracking_state != ORB_SLAM3::Tracking::OK && tracking_state != ORB_SLAM3::Tracking::OK_KLT)
             return;
 
-        Sophus::SE3f Tcw = SLAM_->GetTracker()->mCurrentFrame.GetPose();
-        if(!SLAM_->GetTracker()->mCurrentFrame.isSet())
-            return;
-
-        Sophus::SE3f Twc = Tcw.inverse();
+        Sophus::SE3f Twc = current_pose_.inverse();
         if(Twc.translation().array().isNaN()[0] || Twc.rotationMatrix().array().isNaN()(0,0)) // do not publish anything if the pose is NaN
             return;
     
@@ -95,7 +94,7 @@ void RGBDSLAMNode::grab_data(const ImageMsg::SharedPtr msg_RGB, const ImageMsg::
         publish_camera_pose(Twc, msg_time);
         publish_tracked_points(SLAM_->GetTrackedMapPoints(), msg_time);
         publish_all_points(GetAllMapPoints(), msg_time);
-        publish_tracking_img(SLAM_->GetTracker()->mImGray, msg_RGB->header.stamp);
+        publish_tracking_img(cv_bridge::toCvShare(msg_RGB, sensor_msgs::image_encodings::BGR8)->image, msg_RGB->header.stamp);
         publish_kf_markers(GetAllKeyframePoses(), msg_time);
     }
     catch (cv_bridge::Exception& e)

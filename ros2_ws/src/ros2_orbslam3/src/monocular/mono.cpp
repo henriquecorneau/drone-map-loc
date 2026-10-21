@@ -23,7 +23,8 @@
 // environment variables read by this version of ORB_SLAM3
 // (see ORB_SLAM3/src/System.cc).
 std::vector<char*> ExtractAtlasArgs(int argc, char** argv, std::string& load_file,
-                                    std::string& save_file, bool& localize_only)
+                                    std::string& save_file, bool& localize_only,
+                                    std::string& features_csv, bool& plot_features)
 {
     std::vector<char*> remaining;
     remaining.push_back(argv[0]);
@@ -45,6 +46,14 @@ std::vector<char*> ExtractAtlasArgs(int argc, char** argv, std::string& load_fil
         {
             localize_only = true;
         }
+        else if(arg == "--features-csv" && has_next)
+        {
+            features_csv = argv[++i];
+        }
+        else if(arg == "--no-plot")
+        {
+            plot_features = false;
+        }
         else
         {
             remaining.push_back(argv[i]);
@@ -56,11 +65,14 @@ std::vector<char*> ExtractAtlasArgs(int argc, char** argv, std::string& load_fil
 int main(int argc, char **argv)
 {
     std::string load_file, save_file;
+    std::string features_csv = "/home/dev/maps/localization_features.csv";
     bool localize_only = false;
-    std::vector<char*> remaining_args = ExtractAtlasArgs(argc, argv, load_file, save_file, localize_only);
+    bool plot_features = true;
+    std::vector<char*> remaining_args = ExtractAtlasArgs(argc, argv, load_file, save_file, localize_only,
+                                                         features_csv, plot_features);
     if(remaining_args.size() < 3)
     {
-        std::cerr << "\nUsage: ros2 run ros2_orbslam3 mono path_to_vocabulary path_to_settings [--load-map map.osa] [--save-map map.osa] [--localize-only]" << std::endl;
+        std::cerr << "\nUsage: ros2 run ros2_orbslam3 mono path_to_vocabulary path_to_settings [--load-map map.osa] [--save-map map.osa] [--localize-only] [--features-csv stats.csv] [--no-plot]" << std::endl;
         return 1;
     }
     if(localize_only && load_file.empty())
@@ -84,7 +96,17 @@ int main(int argc, char **argv)
     auto node = std::make_shared<MonocularSLAMNode>(&SLAM);
     std::cout << "============================ " << std::endl;
     rclcpp::spin(node);
+
+    const size_t num_frames = node->save_feature_stats(features_csv);
+    node.reset();  // shuts SLAM down (and saves the atlas) before plotting
     rclcpp::shutdown();
+
+    if(plot_features && num_frames > 0)
+    {
+        const std::string cmd = "ros2 run ros2_orbslam3 plot_features.py '" + features_csv + "'";
+        if(std::system(cmd.c_str()) != 0)
+            std::cerr << "Feature plot failed; run manually: " << cmd << std::endl;
+    }
 
     return 0;
 }

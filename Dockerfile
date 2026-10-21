@@ -36,8 +36,6 @@ WORKDIR /home/$USERNAME
 
 RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
 
-RUN git clone https://github.com/huynhduc9905/ORB_SLAM3.git
-
 RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
   && cd Pangolin/ \
   && sudo apt-get update \
@@ -48,7 +46,14 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
   && sudo cmake --install build \
   && sudo ldconfig
 
-RUN cd ORB_SLAM3 \
+# Our fork of huynhduc9905/ORB_SLAM3 (adds relocalization in localization-only
+# mode). Pinned so rebuilds are reproducible; bump to pick up fork changes.
+ARG ORB_SLAM3_REPO=https://github.com/henriquecorneau/ORB_SLAM3.git
+ARG ORB_SLAM3_COMMIT=99998f4dc8f94eb678eba36d8862cc5504226726
+
+RUN git clone ${ORB_SLAM3_REPO} ORB_SLAM3 \
+  && cd ORB_SLAM3 \
+  && git checkout ${ORB_SLAM3_COMMIT} \
   && chmod +x build.sh \
   && ./build.sh
 

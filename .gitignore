@@ -9,3 +9,6 @@ bags/*
 *.map
 KeyFrameTrajectory.txt
 SavedTrajectory.txt
+
+# Generated maps and localization results
+maps/

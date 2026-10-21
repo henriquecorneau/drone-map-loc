@@ -1,0 +1,94 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+#System.LoadAtlasFromFile: "atlas_00"
+File.version: "1.0"
+
+Camera.type: "PinHole"
+
+# Camera calibration and distortion parameters (OpenCV)
+# Same calibration as tello_02.yaml. tello.yaml's distortion (k2=-2.68,
+# k3=10.06) blows up off-center (~240 px shift at the corners); this one stays
+# under 7 px.
+Camera1.fx: 921.170702
+Camera1.fy: 919.018377
+Camera1.cx: 459.904354
+Camera1.cy: 351.238301
+
+Camera1.k1: -0.033458
+Camera1.k2: 0.105152
+Camera1.p1: 0.001256
+Camera1.p2: -0.006647
+Camera1.k3: 0.000000
+
+# Camera resolution
+Camera.width: 960
+Camera.height: 720
+
+# Localizing against a Kinect-built map: resize the Tello images so a feature
+# has the same pixel scale as in the Kinect images (Kinect fx ~517 vs Tello
+# fx ~921): 539/960 * 921.17 = 517.2 and 405/720 * 919.02 = 517.0.
+# ORB_SLAM3 predicts the ORB pyramid level of a map point from its distance
+# only, so without this most matches land ~3 levels off and are rejected.
+# ORB_SLAM3 rescales the intrinsics above accordingly.
+Camera.newWidth: 539
+Camera.newHeight: 405
+
+# Camera frames per second 
+Camera.fps: 30
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+# Transformation from body-frame (imu) to camera
+IMU.T_b_c1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [1.0, 0.0, 0.0, 0.0,
+          0.0, 1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0, 0.0,
+          0.0, 0.0, 0.0, 1.0]
+
+# IMU noise (dummy values that won't interfere significantly)
+IMU.NoiseGyro: 1e-6
+IMU.NoiseAcc: 1e-6
+IMU.GyroWalk: 1e-6
+IMU.AccWalk: 1e-6
+IMU.Frequency: 200.0
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 2000
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#--------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0
+# Disable the ORB_SLAM3 web viewer; its blocking accept() never wakes on
+# close during shutdown and the process never exits (map is not saved).
+WebViewer.Enabled: 0

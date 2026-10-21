@@ -16,6 +16,7 @@ services:
       - QT_X11_NO_MITSHM=1
       - LIBGL_ALWAYS_SOFTWARE=1
     volumes:
+      - ./maps:/home/dev/maps
       - ./ros2_ws:/home/dev/ros2_ws
       - ./bags:/home/dev/bags
       - ./config:/home/dev/config

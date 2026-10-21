@@ -1,0 +1,54 @@
+%YAML:1.0
+---
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+File.version: "1.0"
+
+Camera.type: "PinHole"
+
+# Camera calibration and distortion parameters (OpenCV)
+Camera1.fx: 921.170702
+Camera1.fy: 919.018377
+Camera1.cx: 459.904354
+Camera1.cy: 351.238301
+
+Camera1.k1: -0.033458
+Camera1.k2: 0.105152
+Camera1.p1: 0.001256
+Camera1.p2: -0.006647
+Camera1.k3: 0.000000
+
+# Camera frames per second
+Camera.fps: 30
+
+# Color order of the images (0: BGR, 1: RGB. Ignored for grayscale images)
+Camera.RGB: 1
+
+# Camera resolution
+Camera.width: 960
+Camera.height: 720
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+ORBextractor.nFeatures: 2000
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#--------------------------------------------------------------------------------------------
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -1.8
+Viewer.ViewpointF: 500.0
+WebViewer.Enabled: 0

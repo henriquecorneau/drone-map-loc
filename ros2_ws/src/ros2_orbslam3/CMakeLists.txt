@@ -6,10 +6,12 @@ set(ENV{PYTHONPATH} "/opt/ros/humble/lib/python3.10/site-packages")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules)
 
-# Default to C++14
-if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
-endif()
+# Match the ORB_SLAM3 library build (C++17, -march=native): Eigen aligns
+# fixed-size types differently with AVX, so mismatched flags change the layout
+# of ORB_SLAM3 structs (e.g. Sophus poses in snapshots) seen by these nodes.
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-march=native)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -67,6 +69,8 @@ ament_target_dependencies(mono
 )
 
 install(TARGETS mono DESTINATION lib/${PROJECT_NAME})
+
+install(PROGRAMS scripts/plot_features.py DESTINATION lib/${PROJECT_NAME})
 
 # RGBD executable
 add_executable(rgbd

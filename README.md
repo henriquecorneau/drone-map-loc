@@ -6,7 +6,12 @@ map. The long-term goal is autonomous drone navigation through a previously
 mapped environment using **Nav2**.
 
 The ROS 2 workspace and ORB-SLAM3 dependencies are built in Docker. The
-container includes Pangolin for visualization.
+container includes Pangolin for visualization. ORB-SLAM3 is built from
+[henriquecorneau/ORB_SLAM3](https://github.com/henriquecorneau/ORB_SLAM3), a
+fork of `huynhduc9905/ORB_SLAM3` that relocalizes after tracking loss in
+localization-only mode. The commit is pinned in the `Dockerfile`
+(`ORB_SLAM3_COMMIT`); bump it and run `docker compose build` to pick up fork
+changes.
 
 ## Current capabilities
 
@@ -84,6 +89,7 @@ The vocabulary and settings files in this setup are:
 /home/dev/ORB_SLAM3/Vocabulary/ORBvoc.txt
 /home/dev/config/kinect.yaml
 /home/dev/config/tello.yaml
+/home/dev/config/tello_kinect_scale.yaml
 ```
 
 ## 4. Build an RGB-D map
@@ -127,7 +133,7 @@ source /opt/ros/humble/setup.bash
 source ~/ros2_ws/install/setup.bash
 ros2 run ros2_orbslam3 mono \
   /home/dev/ORB_SLAM3/Vocabulary/ORBvoc.txt \
-  /home/dev/config/tello.yaml \
+  /home/dev/config/tello_kinect_scale.yaml \
   --load-map /home/dev/bags/environment.osa \
   --localize-only \
   --ros-args -p image_topic:=/tello/camera
@@ -146,6 +152,16 @@ the drone images to see visual features that overlap with the mapped
 environment. Start the drone bag in a mapped area and move slowly while the
 system relocalizes. The RGB-D `DepthMapFactor` is not used by the monocular
 node.
+
+When the map was built with the Kinect, use `tello_kinect_scale.yaml`. It uses
+the `tello_02.yaml` calibration plus `Camera.newWidth/newHeight`, which resize
+the Tello images so features have the same pixel scale as in the Kinect images
+(Kinect fx ~517, Tello fx ~921). ORB-SLAM3 predicts a map point's ORB pyramid level from its
+distance only, so without the resize most matches are searched ~3 pyramid
+levels off and rejected. On `tello_alpha` against `map_rgbd_03`, tracked
+frames went from 66% (`tello.yaml`) to 85% with the resize, and to 89% (mean
+~230 matched features) with the resize and the `tello_02` calibration.
+Use plain `tello.yaml` for monocular maps built with the Tello itself.
 
 The default monocular topic is `/tello/camera`; set `image_topic` to the bag's
 actual image topic if it differs. For example:
@@ -167,6 +183,27 @@ Both executables accept these options:
 | `--save-map <file.osa>` | Save the atlas to this file when the node shuts down. |
 | `--load-map <file.osa>` | Load an existing atlas at startup. |
 | `--localize-only` | Start in localization-only mode; requires `--load-map`. |
+
+The `mono` executable also accepts:
+
+| Option | Purpose |
+| --- | --- |
+| `--features-csv <file.csv>` | Where to save per-frame feature stats on shutdown (default `/home/dev/maps/localization_features.csv`). |
+| `--no-plot` | Save the CSV but do not open the feature plot. |
+
+## Feature plot after localization
+
+During tracking, the `mono` node records for each frame the number of ORB
+features **detected** and the number **matched to map points** (inliers used
+for pose estimation). When you stop the node with Ctrl+C, it writes the CSV,
+shuts ORB-SLAM3 down and opens a plot with both curves (frames where tracking
+was lost are shaded). The plot is also saved as a PNG next to the CSV.
+
+To re-plot an existing CSV:
+
+```bash
+ros2 run ros2_orbslam3 plot_features.py /home/dev/maps/localization_features.csv
+```
 
 ## ROS topics
 
@@ -195,7 +232,8 @@ loaded correctly while the current image failed to match its keyframes.
 Check, in order:
 
 1. The image topic is receiving the intended drone camera stream.
-2. `tello.yaml` matches the drone camera calibration and actual image size.
+2. `tello.yaml` matches the drone camera calibration and actual image size,
+   and `tello_kinect_scale.yaml` is used against Kinect-built maps.
 3. The drone starts in a location and orientation represented in the map.
 4. The image is sharp, well-lit, and contains textured features; avoid rapid
    motion, motion blur, blank surfaces, and large viewpoint changes.
