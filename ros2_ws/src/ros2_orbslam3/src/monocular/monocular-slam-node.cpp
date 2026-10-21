@@ -6,6 +6,7 @@
 #include <Eigen/Dense>
 #include <algorithm>
 #include <fstream>
+#include <iomanip>
 
 // OpenCV includes
 #include <opencv2/core/core.hpp>
@@ -100,7 +101,7 @@ bool MonocularSLAMNode::is_glitchy_frame(const cv::Mat& gray)
     return false;
 }
 
-void MonocularSLAMNode::record_feature_stats(double stamp)
+void MonocularSLAMNode::record_feature_stats(double stamp, const Sophus::SE3f& T_camera_world)
 {
     // System's copies of the current frame; outliers are already NULL.
     const int detected = static_cast<int>(SLAM_->GetTrackedKeyPointsUn().size());
@@ -109,8 +110,29 @@ void MonocularSLAMNode::record_feature_stats(double stamp)
         std::count_if(map_points.begin(), map_points.end(),
                       [](ORB_SLAM3::MapPoint* mp) { return mp != nullptr; }));
 
-    feature_stats_.push_back({stamp, detected, matched, SLAM_->GetTrackingState()});
+    FeatureStat stat{stamp, detected, matched, SLAM_->GetTrackingState(), false, 0, Sophus::SE3f()};
+    if(stat.state == ORB_SLAM3::Tracking::OK || stat.state == ORB_SLAM3::Tracking::OK_KLT)
+    {
+        stat.T_world_camera = T_camera_world.inverse();
+        stat.tracked = stat.T_world_camera.translation().allFinite();
+        // Relocalization may switch the active map of a multi-map atlas.
+        stat.map_id = SLAM_->GetGraphSnapshot().active_map_id;
+    }
+    feature_stats_.push_back(stat);
 }
+
+namespace
+{
+// Pose columns: camera position in the world frame and orientation as an xyzw
+// quaternion (T_world_camera).
+void write_pose(std::ostream& out, const Sophus::SE3f& T_world_camera)
+{
+    const Eigen::Vector3f& t = T_world_camera.translation();
+    const Eigen::Quaternionf& q = T_world_camera.unit_quaternion();
+    out << t.x() << "," << t.y() << "," << t.z() << ","
+        << q.x() << "," << q.y() << "," << q.z() << "," << q.w();
+}
+}  // namespace
 
 size_t MonocularSLAMNode::save_feature_stats(const std::string& csv_path) const
 {
@@ -121,14 +143,58 @@ size_t MonocularSLAMNode::save_feature_stats(const std::string& csv_path) const
         return 0;
     }
 
-    out << "stamp,detected,matched,state\n";
-    out << std::fixed;
+    out << "stamp,detected,matched,state,map_id,x,y,z,qx,qy,qz,qw\n";
+    out << std::fixed << std::setprecision(6);
     for(const FeatureStat& s : feature_stats_)
-        out << s.stamp << "," << s.detected << "," << s.matched << "," << s.state << "\n";
+    {
+        out << s.stamp << "," << s.detected << "," << s.matched << "," << s.state << ",";
+        if(s.tracked)
+        {
+            out << s.map_id << ",";
+            write_pose(out, s.T_world_camera);
+        }
+        else
+            out << ",,,,,,,";
+        out << "\n";
+    }
 
     RCLCPP_INFO(this->get_logger(), "Saved feature stats for %zu frames to '%s'",
                 feature_stats_.size(), csv_path.c_str());
     return feature_stats_.size();
+}
+
+void MonocularSLAMNode::save_map(const std::string& stem) const
+{
+    std::ofstream kf_out(stem + "_keyframes.csv");
+    std::ofstream mp_out(stem + "_map_points.csv");
+    if(!kf_out || !mp_out)
+    {
+        RCLCPP_ERROR(this->get_logger(), "Could not write map files with prefix '%s'", stem.c_str());
+        return;
+    }
+
+    size_t num_keyframes = 0;
+    kf_out << "map_id,id,x,y,z,qx,qy,qz,qw\n" << std::fixed << std::setprecision(6);
+    for(const ORB_SLAM3::KeyframeSnapshot& kf : SLAM_->GetAllKeyframeSnapshots())
+    {
+        if(kf.bad)
+            continue;
+        kf_out << kf.map_id << "," << kf.id << ",";
+        write_pose(kf_out, kf.T_world_camera);
+        kf_out << "\n";
+        num_keyframes++;
+    }
+
+    const std::vector<ORB_SLAM3::MapPointSnapshot> points = SLAM_->GetAllMapPointSnapshots();
+    mp_out << "map_id,x,y,z\n" << std::fixed << std::setprecision(4);
+    for(const ORB_SLAM3::MapPointSnapshot& p : points)
+    {
+        const Eigen::Vector3f& pos = p.position_world;
+        mp_out << p.map_id << "," << pos.x() << "," << pos.y() << "," << pos.z() << "\n";
+    }
+
+    RCLCPP_INFO(this->get_logger(), "Saved %zu keyframes and %zu map points to '%s_*.csv'",
+                num_keyframes, points.size(), stem.c_str());
 }
 
 void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
@@ -150,7 +216,7 @@ void MonocularSLAMNode::grab_data(const ImageMsg::SharedPtr msg)
             stamp = this->get_clock()->now().seconds();
 
         current_pose_ = SLAM_->TrackMonocular(gray_image, stamp);
-        record_feature_stats(stamp);
+        record_feature_stats(stamp, current_pose_);
 
         PoseStampedMsg pose_msg1;
         pose_msg1.header.stamp = msg->header.stamp;

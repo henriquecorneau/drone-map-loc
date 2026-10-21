@@ -47,9 +47,10 @@ RUN git clone --recursive https://github.com/stevenlovegrove/Pangolin.git \
   && sudo ldconfig
 
 # Our fork of huynhduc9905/ORB_SLAM3 (adds relocalization in localization-only
-# mode). Pinned so rebuilds are reproducible; bump to pick up fork changes.
+# mode and snapshots of every atlas map). Pinned so rebuilds are reproducible;
+# bump to pick up fork changes.
 ARG ORB_SLAM3_REPO=https://github.com/henriquecorneau/ORB_SLAM3.git
-ARG ORB_SLAM3_COMMIT=99998f4dc8f94eb678eba36d8862cc5504226726
+ARG ORB_SLAM3_COMMIT=8affde83c0afadb0984cf0910844e613ac3c04c7
 
 RUN git clone ${ORB_SLAM3_REPO} ORB_SLAM3 \
   && cd ORB_SLAM3 \

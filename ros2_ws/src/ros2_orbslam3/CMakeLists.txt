@@ -70,7 +70,10 @@ ament_target_dependencies(mono
 
 install(TARGETS mono DESTINATION lib/${PROJECT_NAME})
 
-install(PROGRAMS scripts/plot_features.py DESTINATION lib/${PROJECT_NAME})
+install(PROGRAMS
+  scripts/plot_features.py
+  scripts/plot_localization_map.py
+  DESTINATION lib/${PROJECT_NAME})
 
 # RGBD executable
 add_executable(rgbd

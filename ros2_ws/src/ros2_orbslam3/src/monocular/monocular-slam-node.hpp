@@ -39,9 +39,13 @@ public:
     MonocularSLAMNode(ORB_SLAM3::System* pSLAM);
     ~MonocularSLAMNode();
 
-    // Writes the per-frame feature statistics collected during tracking as CSV.
-    // Returns the number of frames written.
+    // Writes the per-frame feature statistics and camera poses collected during
+    // tracking as CSV. Returns the number of frames written.
     size_t save_feature_stats(const std::string& csv_path) const;
+
+    // Writes the keyframes and map points of every map in the atlas to
+    // <stem>_keyframes.csv and <stem>_map_points.csv.
+    void save_map(const std::string& stem) const;
 
 private:
     using ImageMsg = sensor_msgs::msg::Image;
@@ -55,6 +59,9 @@ private:
         int detected;   // ORB keypoints extracted in the frame
         int matched;    // keypoints matched to map points (inliers)
         int state;      // ORB_SLAM3::Tracking state after tracking the frame
+        bool tracked;   // pose and map_id are only meaningful when tracked
+        std::uint64_t map_id;
+        Sophus::SE3f T_world_camera;
     };
 
     cv_bridge::CvImagePtr cv_ptrImg_;
@@ -79,7 +86,7 @@ private:
     rclcpp::Subscription<ImageMsg>::SharedPtr img_sub_;
 
     bool is_glitchy_frame(const cv::Mat& gray);
-    void record_feature_stats(double stamp);
+    void record_feature_stats(double stamp, const Sophus::SE3f& T_camera_world);
     void grab_data(const ImageMsg::SharedPtr msg);
     void publish_camera_pose(const Sophus::SE3f& Tcw_SE3f, const std_msgs::msg::Header& header);
     void publish_tracked_points(const std::vector<ORB_SLAM3::MapPoint*>& tracked_points, const rclcpp::Time& msg_time);

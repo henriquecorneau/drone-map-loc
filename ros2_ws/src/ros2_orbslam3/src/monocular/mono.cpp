@@ -98,14 +98,19 @@ int main(int argc, char **argv)
     rclcpp::spin(node);
 
     const size_t num_frames = node->save_feature_stats(features_csv);
+    const std::string map_stem = features_csv.substr(0, features_csv.rfind(".csv"));
+    node->save_map(map_stem);
     node.reset();  // shuts SLAM down (and saves the atlas) before plotting
     rclcpp::shutdown();
 
     if(plot_features && num_frames > 0)
     {
-        const std::string cmd = "ros2 run ros2_orbslam3 plot_features.py '" + features_csv + "'";
+        // Both windows open at once; wait until the user closes them.
+        const std::string csv = "'" + features_csv + "'";
+        const std::string cmd = "ros2 run ros2_orbslam3 plot_features.py " + csv +
+                                " & ros2 run ros2_orbslam3 plot_localization_map.py " + csv + " & wait";
         if(std::system(cmd.c_str()) != 0)
-            std::cerr << "Feature plot failed; run manually: " << cmd << std::endl;
+            std::cerr << "Plotting failed; run manually: " << cmd << std::endl;
     }
 
     return 0;

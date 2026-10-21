@@ -28,13 +28,13 @@ Camera.width: 960
 Camera.height: 720
 
 # Localizing against a Kinect-built map: resize the Tello images so a feature
-# has the same pixel scale as in the Kinect images (Kinect fx ~517 vs Tello
-# fx ~921): 539/960 * 921.17 = 517.2 and 405/720 * 919.02 = 517.0.
+# has the same pixel scale as in the Kinect images (Kinect fx 526.6 vs Tello
+# fx ~921): 549/960 * 921.17 = 526.8 and 413/720 * 919.02 = 527.2.
 # ORB_SLAM3 predicts the ORB pyramid level of a map point from its distance
 # only, so without this most matches land ~3 levels off and are rejected.
 # ORB_SLAM3 rescales the intrinsics above accordingly.
-Camera.newWidth: 539
-Camera.newHeight: 405
+Camera.newWidth: 549
+Camera.newHeight: 413
 
 # Camera frames per second 
 Camera.fps: 30
