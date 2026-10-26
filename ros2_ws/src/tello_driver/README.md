@@ -31,6 +31,42 @@ ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}"   # C
 ros2 service call /tello/land std_srvs/srv/Trigger
 ```
 
+## Keyboard teleop
+
+In a second container shell (it needs an interactive terminal, so use
+`ros2 run`, not `ros2 launch`), with the driver running:
+
+```bash
+ros2 run tello_driver teleop_keyboard
+```
+
+| Key | Action |
+| --- | --- |
+| `t` / `l` | Take off / land (`/tello/takeoff`, `/tello/land`) |
+| `w` / `s` | Forward / back |
+| `a` / `d` | Left / right |
+| `r` / `f` | Up / down |
+| `q` / `e` | Yaw left / right |
+| space | Stop (hover) |
+| `+` / `-` | Speed ±10% (10% to 200% of the parameters below) |
+| `!` twice within 1 s | **Emergency: cuts the motors** |
+| Ctrl+C | Quit; lands if this teleop took off and `land_on_exit` is true |
+
+Hold a key to keep moving. A terminal only sees key presses, not releases, so
+each press keeps the motion for `key_timeout` (0.7 s) and the keyboard
+autorepeat refreshes it while the key is held; after releasing, the drone
+keeps moving for up to `key_timeout` and then hovers. If it stutters at the
+start of a hold, the autorepeat delay of your desktop is longer than
+`key_timeout`: raise the parameter. One movement at a time (the last key
+pressed). Keys are case-sensitive, so Caps Lock disables them.
+
+The teleop publishes `/cmd_vel` at `rate` (10 Hz) only while moving, plus
+three zero commands when it stops, so it does not fight another `/cmd_vel`
+source (e.g. Nav2) while idle. Parameters: `linear_speed` and
+`vertical_speed` (0.3 m/s), `angular_speed` (0.6 rad/s), `key_timeout`,
+`rate`, `land_on_exit`. The driver still saturates every channel at
+`rc_limit`.
+
 ## Interface
 
 ### Published

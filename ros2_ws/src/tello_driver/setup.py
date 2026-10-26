@@ -23,6 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'tello_driver = tello_driver.driver_node:main',
+            'teleop_keyboard = tello_driver.teleop_keyboard:main',
         ],
     },
 )
