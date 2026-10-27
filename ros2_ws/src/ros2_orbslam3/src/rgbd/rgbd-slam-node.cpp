@@ -57,8 +57,9 @@ RGBDSLAMNode::RGBDSLAMNode(ORB_SLAM3::System* pSLAM)
 void RGBDSLAMNode::initialize_subscribers()
 {   
     // Image subscribers
-    rgb_sub_ = std::make_shared<message_filters::Subscriber<ImageMsg> >(this, "/image_raw"); //cant use make_shared here> double free error
-    depth_sub_ = std::make_shared<message_filters::Subscriber<ImageMsg> >(this, "/depth/image_raw");
+    // Sensor data QoS (best effort): receives from both best-effort and reliable camera publishers
+    rgb_sub_ = std::make_shared<message_filters::Subscriber<ImageMsg> >(this, "/image_raw", rmw_qos_profile_sensor_data); //cant use make_shared here> double free error
+    depth_sub_ = std::make_shared<message_filters::Subscriber<ImageMsg> >(this, "/depth/image_raw", rmw_qos_profile_sensor_data);
 
     // Sync RGB and depth images
     sync_approximate_ = std::make_shared<message_filters::Synchronizer<approximate_sync_policy> >(approximate_sync_policy(10), *rgb_sub_, *depth_sub_);

@@ -30,10 +30,11 @@ MonocularSLAMNode::MonocularSLAMNode(ORB_SLAM3::System* pSLAM)
 
     const std::string image_topic = this->declare_parameter<std::string>("image_topic", "/tello/camera");
 
-    // Image subscriber
+    // Image subscriber. SensorDataQoS (best effort) also receives from reliable
+    // publishers; a reliable subscriber gets nothing from tello_driver or its bags.
     img_sub_ = this->create_subscription<ImageMsg>(
         image_topic,
-        rclcpp::QoS(10), 
+        rclcpp::SensorDataQoS(),
         std::bind(&MonocularSLAMNode::grab_data, this, std::placeholders::_1)
     );
     
