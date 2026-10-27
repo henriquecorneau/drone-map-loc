@@ -75,9 +75,13 @@ ros2 bag record -o /home/dev/bags/kinect_$(date +%Y%m%d_%H%M) \
 - [ ] Keep the drone close to the computer on an uncongested Wi-Fi channel;
       transmission glitches cause the blurred and corrupted frames.
 
+With the [`tello_driver`](../ros2_ws/src/tello_driver/README.md) the images
+are stamped and the telemetry is published too; record it as well (the ToF
+height is an independent check of the map scale):
+
 ```bash
 ros2 bag record -o /home/dev/bags/tello_$(date +%Y%m%d_%H%M) \
-  /tello/camera <camera_info topic of the driver>
+  /tello/camera /tello/camera_info /tello/imu /tello/tof /tello/state /cmd_vel
 ```
 
 ### Calibration

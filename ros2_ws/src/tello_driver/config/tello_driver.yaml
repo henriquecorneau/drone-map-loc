@@ -1,0 +1,19 @@
+tello_driver:
+  ros__parameters:
+    tello_ip: "192.168.10.1"
+    # ORB-SLAM3 settings file with the Tello calibration (Camera1.fx/fy/cx/cy, k1..k3)
+    camera_info_file: "/home/dev/config/tello_02.yaml"
+    camera_frame: "tello_camera_optical_frame"
+    base_frame: "base_link"
+    # Published image size (px); camera_info is scaled if it differs from the calibration
+    image_width: 960
+    image_height: 720
+    state_rate: 20.0          # Hz, how often new telemetry packets are checked
+    cmd_vel_timeout: 0.5      # s without cmd_vel before sending rc 0 0 0 0 (hover)
+    # Speed that maps to rc 100. Not documented by the SDK: calibrate before trusting them.
+    max_linear_speed: 1.0     # m/s
+    max_vertical_speed: 1.0   # m/s
+    max_angular_speed: 1.75   # rad/s
+    rc_limit: 40              # saturation of every rc channel (0-100); keep low for first flights
+    velocity_scale: 0.1       # Tello vgx/vgy/vgz unit -> m/s (dm/s assumed, unverified)
+    land_on_shutdown: true    # land when the node stops while the drone is in the air

@@ -20,6 +20,10 @@ changes.
 - Localize monocular images against a loaded atlas, including starting in
   localization-only mode.
 - Play recorded ROS 2 bags for mapping and localization.
+- Fly the Tello live with the [`tello_driver`](ros2_ws/src/tello_driver/README.md)
+  package: stamped camera and camera info, telemetry (IMU, ToF, battery) and
+  `/cmd_vel` with a watchdog, on top of
+  [tello-zune](https://github.com/zunedrones/tello_zune).
 
 The monocular and RGB-D nodes publish pose, odometry, map-point clouds,
 tracking images, and keyframe markers. The RGB-D node subscribes to
@@ -284,6 +288,10 @@ by itself mean the live camera has localized successfully.
 
 The end goal is to navigate the drone autonomously through a pre-mapped
 environment using Nav2. Planned work:
+
+- [x] ROS 2 driver for the live Tello (`tello_driver`): stamped images,
+  camera info, telemetry and `/cmd_vel` with a watchdog. Bench-test the
+  attitude signs and the velocity unit before flying (see its README).
 
 - [ ] Verify localization robustness across RGB-D mapping and drone-camera
   sessions, including camera extrinsics and coordinate frames.

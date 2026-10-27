@@ -58,4 +58,17 @@ RUN git clone ${ORB_SLAM3_REPO} ORB_SLAM3 \
   && chmod +x build.sh \
   && ./build.sh
 
+# Tello driver (ros2_ws/src/tello_driver): tello-zune pinned to the commit of
+# zunedrones/tello_zune#34 (get_frame_stamped, get_state, rc watchdog); switch
+# to the PyPI release once it is published. --no-deps keeps the apt OpenCV and
+# NumPy 1.x that Humble's cv_bridge was built against.
+ARG TELLO_ZUNE_REF=61a411e8e443bb6390f1919fa09057be2193a7c5
+
+RUN sudo apt-get update \
+  && sudo apt-get install -y python3-opencv python3-scipy python3-pytest \
+     ros-humble-cv-bridge ros-humble-diagnostic-msgs \
+  && sudo rm -rf /var/lib/apt/lists/* \
+  && python3 -m pip install --user --no-cache-dir --no-deps \
+     "tello_zune @ git+https://github.com/zunedrones/tello_zune.git@${TELLO_ZUNE_REF}"
+
 CMD ["bash"]
